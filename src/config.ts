@@ -6,9 +6,9 @@
  */
 
 /**
- * A pattern with explicit matching mode.
- * Default: glob for files, substring for commands.
- * regex: true means full regex matching.
+ * Base pattern with explicit matching mode.
+ * - Default: glob for files, substring for commands.
+ * - regex: true means full regex matching.
  */
 export interface PatternConfig {
   pattern: string;
@@ -16,11 +16,30 @@ export interface PatternConfig {
 }
 
 /**
+ * File pattern config with pathFilter support.
+ * - pathFilter: optional array of paths to restrict matches to. Supports:
+ *   - "." or "./" for current working directory
+ *   - "../" for parent of cwd
+ *   - "~" or "~/" for home directory
+ *   - Absolute paths (e.g., "/home/user/docs", "C:/Windows")
+ *   Pattern matches if file is inside ANY of the specified paths.
+ *   If not set, pattern matches anywhere (no restriction).
+ */
+export interface FilePatternConfig extends PatternConfig {
+  pathFilter?: string[];
+}
+
+/**
+ * Command pattern config (no pathFilter, not applicable in command context).
+ */
+export type CommandPatternConfig = PatternConfig;
+
+/**
  * Permission gate pattern. When regex is false (default), the pattern
  * is matched as substring against the raw command string.
  * When regex is true, uses full regex against the raw string.
  */
-export interface DangerousPattern extends PatternConfig {
+export interface DangerousPattern extends CommandPatternConfig {
   description: string;
 }
 
@@ -40,9 +59,9 @@ export interface PolicyRule {
   /** Human-readable description. */
   description?: string;
   /** File patterns to protect. */
-  patterns: PatternConfig[];
+  patterns: FilePatternConfig[];
   /** Optional exceptions. */
-  allowedPatterns?: PatternConfig[];
+  allowedPatterns?: FilePatternConfig[];
   /** Protection level. */
   protection: Protection;
   /** Block only when file exists on disk. Default true. */
