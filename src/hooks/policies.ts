@@ -260,17 +260,40 @@ async function getEffectiveProtection(
     );
     if (!matched) continue;
 
-    const allowed = rule.allowedPatterns.some((pattern) =>
-      pattern.test(filePath, cwd),
-    );
-    if (allowed) continue;
+    // Check allowed patterns - they may have custom protection overrides
+    let effectiveProtection: Protection | undefined;
+    for (const allowedPattern of rule.allowedPatterns) {
+      if (allowedPattern.test(filePath, cwd)) {
+        const overrideProtection = allowedPattern.source.protection;
+        if (overrideProtection && overrideProtection !== "none") {
+          // Use the most restrictive override if multiple allowed patterns match
+          if (
+            !effectiveProtection ||
+            protectionRank(overrideProtection) >
+              protectionRank(effectiveProtection)
+          ) {
+            effectiveProtection = overrideProtection;
+          }
+        } else {
+          // Allowed pattern without protection override means full access - skip this rule
+          effectiveProtection = "none";
+          break;
+        }
+      }
+    }
+
+    // If allowed pattern with "none" matched, skip this rule entirely
+    if (effectiveProtection === "none") continue;
+
+    // Use override protection if set, otherwise use rule's default
+    const finalProtection = effectiveProtection ?? rule.protection;
 
     if (rule.onlyIfExists && !(await fileExists(filePath, cwd))) continue;
 
-    const rank = protectionRank(rule.protection);
+    const rank = protectionRank(finalProtection);
     if (!bestMatch || rank > bestMatch.rank) {
       bestMatch = {
-        protection: rule.protection,
+        protection: finalProtection,
         askConfirmation: rule.askConfirmation,
         blockMessage: rule.blockMessage,
         ruleId: rule.id,

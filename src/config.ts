@@ -16,7 +16,7 @@ export interface PatternConfig {
 }
 
 /**
- * File pattern config with pathFilter support.
+ * File pattern config with pathFilter and optional protection override.
  * - pathFilter: optional array of paths to restrict matches to. Supports:
  *   - "." or "./" for current working directory
  *   - "../" for parent of cwd
@@ -24,9 +24,13 @@ export interface PatternConfig {
  *   - Absolute paths (e.g., "/home/user/docs", "C:/Windows")
  *   Pattern matches if file is inside ANY of the specified paths.
  *   If not set, pattern matches anywhere (no restriction).
+ * - protection: optional override protection for this exception. If set, this protection
+ *   is applied instead of the rule's default protection when the file matches.
+ *   If not set (or "none"), the file is fully allowed (rule is skipped).
  */
 export interface FilePatternConfig extends PatternConfig {
   pathFilter?: string[];
+  protection?: Protection;
 }
 
 /**

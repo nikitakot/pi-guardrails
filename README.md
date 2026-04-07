@@ -108,7 +108,22 @@ Each rule has:
     If not set, pattern matches anywhere (no restriction).
 
     Example: `"pathFilter": ["."]` for cwd only, `"pathFilter": [".", "~/.config"]` for cwd and home config.
-- `allowedPatterns`: exceptions (same format as `patterns`).
+- `allowedPatterns`: exceptions (same format as `patterns`). Optionally include `protection` to apply a different protection level instead of fully allowing access.
+  - No `protection` or `"none"`: file is fully allowed (rule skipped for this file)
+  - `"readOnly"`: apply read-only protection instead of the rule's default
+  - `"noAccess"`: block all access (useful for stricter overrides)
+  
+  Example: allow read-only access to `~/.pi` while blocking everything else outside cwd:
+  ```json
+  {
+    "patterns": [{ "pattern": "^[\\s\\S]*$", "regex": true }],
+    "allowedPatterns": [
+      { "pattern": "^[\\s\\S]*$", "regex": true, "pathFilter": ["."] },
+      { "pattern": "~/.pi/**", "protection": "readOnly" }
+    ],
+    "protection": "noAccess"
+  }
+  ```
 - `protection`:
   - `noAccess`: block `read`, `write`, `edit`, `bash`, `grep`, `find`, `ls`
   - `readOnly`: block `write`, `edit`, `bash`
