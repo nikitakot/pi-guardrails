@@ -64,6 +64,8 @@ export interface PolicyRule {
   allowedPatterns?: FilePatternConfig[];
   /** Protection level. */
   protection: Protection;
+  /** When true, shows a confirmation dialog before allowing access if access was denied by a rule. */
+  askConfirmation?: boolean;
   /** Block only when file exists on disk. Default true. */
   onlyIfExists?: boolean;
   /** Message shown when blocked; supports {file} placeholder. */

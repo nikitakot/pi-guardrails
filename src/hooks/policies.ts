@@ -3,6 +3,11 @@ import { isAbsolute, relative, resolve } from "node:path";
 import { parse } from "@aliou/sh";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { PolicyRule, Protection, ResolvedConfig } from "../config";
+import { configLoader } from "../config";
+import {
+  type ConfirmResult,
+  createConfirmationUI,
+} from "../utils/confirmation-ui";
 import { emitBlocked } from "../utils/events";
 import { expandGlob, hasGlobChars } from "../utils/glob-expander";
 import {
@@ -33,6 +38,7 @@ interface CompiledRule {
   protection: Protection;
   patterns: CompiledFilePattern[];
   allowedPatterns: CompiledFilePattern[];
+  askConfirmation: boolean;
   onlyIfExists: boolean;
   blockMessage: string;
   enabled: boolean;
@@ -96,6 +102,7 @@ function compileRules(rules: PolicyRule[]): CompiledRule[] {
     compiled.push({
       id,
       protection: rule.protection,
+      askConfirmation: rule.askConfirmation ?? false,
       patterns: compileFilePatterns(normalizedPatterns),
       allowedPatterns: compileFilePatterns(normalizedAllowedPatterns),
       onlyIfExists: rule.onlyIfExists ?? true,
@@ -233,11 +240,13 @@ async function getEffectiveProtection(
   cwd: string,
 ): Promise<{
   protection: Protection;
+  askConfirmation: boolean;
   blockMessage: string;
   ruleId: string;
 } | null> {
   let bestMatch: {
     protection: Protection;
+    askConfirmation: boolean;
     blockMessage: string;
     ruleId: string;
     rank: number;
@@ -262,6 +271,7 @@ async function getEffectiveProtection(
     if (!bestMatch || rank > bestMatch.rank) {
       bestMatch = {
         protection: rule.protection,
+        askConfirmation: rule.askConfirmation,
         blockMessage: rule.blockMessage,
         ruleId: rule.id,
         rank,
@@ -273,6 +283,7 @@ async function getEffectiveProtection(
 
   return {
     protection: bestMatch.protection,
+    askConfirmation: bestMatch.askConfirmation,
     blockMessage: bestMatch.blockMessage,
     ruleId: bestMatch.ruleId,
   };
@@ -313,6 +324,81 @@ export function setupPoliciesHook(pi: ExtensionAPI, config: ResolvedConfig) {
 
       const blockedTools = BLOCKED_TOOLS[effective.protection];
       if (!blockedTools.has(toolName)) continue;
+
+      // Handle confirmation dialog for rules with askConfirmation enabled
+      if (effective.askConfirmation) {
+        // In print/RPC mode, block by default (safe fallback)
+        if (!ctx.hasUI) {
+          const reason = `Access to ${normalizedTarget} blocked (no UI to confirm): ${effective.blockMessage}`;
+          emitBlocked(pi, {
+            feature: "policies",
+            toolName,
+            input: event.input,
+            reason,
+          });
+          return { block: true, reason };
+        }
+
+        const result = await ctx.ui.custom<ConfirmResult>(
+          createConfirmationUI({
+            title: "Protected File Access",
+            detailText: `File: ${normalizedTarget}\n\n${effective.blockMessage.replace("{file}", normalizedTarget)}`,
+            promptText: "Allow access?",
+            borderColor: "warning",
+          }),
+        );
+
+        if (result === "allow-session") {
+          // Save to memory scope for persistence across the session
+          const resolved = configLoader.getConfig();
+          const rule = resolved.policies.rules.find(
+            (r) => r.id === effective.ruleId,
+          );
+          if (rule) {
+            await configLoader.save("memory", {
+              policies: {
+                rules: [
+                  {
+                    ...rule,
+                    allowedPatterns: [
+                      ...(rule.allowedPatterns ?? []),
+                      { pattern: normalizedTarget },
+                    ],
+                  },
+                ],
+              },
+            });
+
+            // Update local cache so it takes effect immediately
+            const compiledRule = compiledRules.find(
+              (r) => r.id === effective.ruleId,
+            );
+            if (compiledRule) {
+              compiledRule.allowedPatterns.push(
+                ...compileFilePatterns([{ pattern: normalizedTarget }]),
+              );
+            }
+          }
+        }
+
+        if (result === "deny") {
+          const reason = effective.blockMessage.replace(
+            "{file}",
+            normalizedTarget,
+          );
+          emitBlocked(pi, {
+            feature: "policies",
+            toolName,
+            input: event.input,
+            reason,
+            userDenied: true,
+          });
+          return { block: true, reason: "User denied file access" };
+        }
+
+        // If "allow" or "allow-session", continue without blocking
+        continue;
+      }
 
       ctx.ui.notify(
         `Blocked ${toolName} on protected file: ${normalizedTarget} (${effective.ruleId})`,
