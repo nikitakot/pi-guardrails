@@ -86,7 +86,8 @@ Use `/guardrails:settings` to edit config interactively.
     "autoDenyPatterns": [],
     "explainCommands": false,
     "explainModel": null,
-    "explainTimeout": 5000
+    "explainTimeout": 5000,
+    "strictAllowSession": false
   }
 }
 ```
@@ -181,6 +182,19 @@ When a dangerous command or protected file access is detected, guardrails shows 
 - **a**: Allow for the rest of this session (both policies and permission gate)
 - **n/Esc**: Deny
 - **↑/↓ or j/k**: Scroll long commands (permission gate) or multi-line file content (policies with `askConfirmation`)
+
+The **Allow for session** option saves the command to `allowedPatterns`. By default, patterns are matched as substrings, which can accidentally allow similar commands. Enable `strictAllowSession: true` to use exact string matching instead.
+
+Example:
+```json
+{
+  "permissionGate": {
+    "strictAllowSession": true
+  }
+}
+```
+
+With strict mode enabled, allowing `rm -rf /some/path` will only allow that exact command, not `echo rm -rf` or other variations.
 
 ## Migration notes
 

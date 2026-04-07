@@ -35,8 +35,9 @@ export interface FilePatternConfig extends PatternConfig {
 
 /**
  * Command pattern config (no pathFilter, not applicable in command context).
+ * strict: true means exact string match after trimming (only allowed when regex is not set).
  */
-export type CommandPatternConfig = PatternConfig;
+export type CommandPatternConfig = PatternConfig & { strict?: boolean };
 
 /**
  * Permission gate pattern. When regex is false (default), the pattern
@@ -111,11 +112,13 @@ export interface GuardrailsConfig {
     /** If set, replaces the default patterns entirely. */
     customPatterns?: DangerousPattern[];
     requireConfirmation?: boolean;
-    allowedPatterns?: PatternConfig[];
-    autoDenyPatterns?: PatternConfig[];
+    allowedPatterns?: CommandPatternConfig[];
+    autoDenyPatterns?: CommandPatternConfig[];
     explainCommands?: boolean;
     explainModel?: string;
     explainTimeout?: number;
+    /** When true, patterns saved via "allow-session" will use strict matching (exact match) instead of substring. */
+    strictAllowSession?: boolean;
   };
 }
 
@@ -136,11 +139,13 @@ export interface ResolvedConfig {
      *  Set to false when customPatterns replaces the defaults. */
     useBuiltinMatchers: boolean;
     requireConfirmation: boolean;
-    allowedPatterns: PatternConfig[];
-    autoDenyPatterns: PatternConfig[];
+    allowedPatterns: CommandPatternConfig[];
+    autoDenyPatterns: CommandPatternConfig[];
     explainCommands: boolean;
     explainModel: string | null;
     explainTimeout: number;
+    /** When true, patterns saved via "allow-session" use strict matching (exact match). */
+    strictAllowSession: boolean;
   };
 }
 
@@ -317,6 +322,7 @@ const DEFAULT_CONFIG: ResolvedConfig = {
     explainCommands: false,
     explainModel: null,
     explainTimeout: 5000,
+    strictAllowSession: false,
   },
 };
 

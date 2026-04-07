@@ -97,11 +97,17 @@ export function compileFilePattern(
  * Compile a single pattern for command-context matching.
  * Default: substring match against raw command string.
  * regex: true -> full regex against raw command string.
+ * strict: true -> trimmed exact match (only when regex is not set).
  */
 export function compileCommandPattern(
   config: CommandPatternConfig,
 ): CompiledCommandPattern {
   if (config.regex) {
+    if (config.strict === true) {
+      pendingWarnings.push(
+        `Command pattern "${config.pattern}" has both strict and regex enabled. Ignoring strict mode.`,
+      );
+    }
     try {
       const re = new RegExp(config.pattern);
       return { test: (input) => re.test(input), source: config };
@@ -111,6 +117,14 @@ export function compileCommandPattern(
       );
       return { test: () => false, source: config };
     }
+  }
+
+  if (config.strict) {
+    const trimmedPattern = config.pattern.trim();
+    return {
+      test: (input) => input.trim() === trimmedPattern,
+      source: config,
+    };
   }
 
   return {

@@ -4,7 +4,11 @@ import {
   type ExtensionContext,
   isToolCallEventType,
 } from "@mariozechner/pi-coding-agent";
-import type { DangerousPattern, ResolvedConfig } from "../config";
+import type {
+  CommandPatternConfig,
+  DangerousPattern,
+  ResolvedConfig,
+} from "../config";
 import { configLoader } from "../config";
 import { executeSubagent, resolveModel } from "../lib";
 import {
@@ -355,17 +359,21 @@ export function setupPermissionGateHook(
         // Save command as allowed in memory scope (session-only).
         // Spread the resolved allowed patterns and append the new one.
         const resolved = configLoader.getConfig();
+        const newPattern: CommandPatternConfig = config.permissionGate
+          .strictAllowSession
+          ? { pattern: command, strict: true }
+          : { pattern: command };
         await configLoader.save("memory", {
           permissionGate: {
             allowedPatterns: [
               ...resolved.permissionGate.allowedPatterns,
-              { pattern: command },
+              newPattern,
             ],
           },
         });
 
         // Update the local cache so it takes effect immediately
-        allowedPatterns.push(...compileCommandPatterns([{ pattern: command }]));
+        allowedPatterns.push(...compileCommandPatterns([newPattern]));
       }
 
       if (result === "deny") {
