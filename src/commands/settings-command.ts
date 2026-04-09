@@ -1344,6 +1344,29 @@ export function registerGuardrailsSettings(pi: ExtensionAPI): void {
             },
           ],
         },
+        {
+          label: "Readonly Mode",
+          items: [
+            {
+              id: "readOnlyMode.enabled",
+              label: "Enabled",
+              description: "Start in readonly mode (restricts writes)",
+              currentValue:
+                scopedConfig.readOnlyMode?.enabled === undefined
+                  ? "(inherited)"
+                  : scopedConfig.readOnlyMode.enabled
+                    ? "yes"
+                    : "no",
+              values: ["yes", "no"],
+            },
+            {
+              id: "readOnlyMode.help",
+              label: "  Toggle with /guardrails:readonly",
+              description: "Use /guardrails:readonly to toggle runtime state",
+              currentValue: "",
+            },
+          ],
+        },
       ];
     },
     extraTabs: [

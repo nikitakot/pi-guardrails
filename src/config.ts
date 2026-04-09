@@ -120,6 +120,11 @@ export interface GuardrailsConfig {
     /** When true, patterns saved via "allow-session" will use strict matching (exact match) instead of substring. */
     strictAllowSession?: boolean;
   };
+  /** Readonly mode settings */
+  readOnlyMode?: {
+    /** Whether readonly mode is enabled (default: false) */
+    enabled?: boolean;
+  };
 }
 
 export interface ResolvedConfig {
@@ -146,6 +151,11 @@ export interface ResolvedConfig {
     explainTimeout: number;
     /** When true, patterns saved via "allow-session" use strict matching (exact match). */
     strictAllowSession: boolean;
+  };
+  /** Readonly mode settings */
+  readOnlyMode: {
+    /** Whether readonly mode is enabled */
+    enabled: boolean;
   };
 }
 
@@ -323,6 +333,9 @@ const DEFAULT_CONFIG: ResolvedConfig = {
     explainModel: null,
     explainTimeout: 5000,
     strictAllowSession: false,
+  },
+  readOnlyMode: {
+    enabled: false,
   },
 };
 

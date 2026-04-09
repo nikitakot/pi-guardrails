@@ -5,6 +5,12 @@ import { registerGuardrailsSettings } from "./commands/settings-command";
 import { configLoader } from "./config";
 import { setupGuardrailsHooks } from "./hooks";
 import {
+  getReadonlyEnabled,
+  initializeReadonlyState,
+  restoreReadonlyState,
+  setReadonlyState,
+} from "./readonly-state";
+import {
   migrateApplyBuiltinDefaults,
   migrateMarkOnboardingDone,
   needsApplyBuiltinDefaultsMigration,
@@ -18,6 +24,7 @@ import { pendingWarnings } from "./utils/warnings";
  * Security hooks to prevent potentially dangerous operations:
  * - policies: File access policies with per-rule protection levels
  * - permission-gate: Prompts for confirmation on dangerous commands
+ * - readonly-mode: Restricts file writes and requires confirmation for all bash commands
  *
  * Toolchain features (preventBrew, preventPython, enforcePackageManager,
  * packageManager) have been moved to @aliou/pi-toolchain. Old configs
@@ -30,6 +37,28 @@ import { pendingWarnings } from "./utils/warnings";
  */
 export default async function (pi: ExtensionAPI) {
   await configLoader.load();
+
+  // Register readonly mode CLI flag
+  pi.registerFlag("readonly", {
+    description:
+      "Start in readonly mode (restricts writes and requires bash confirmation)",
+    type: "boolean",
+    default: false,
+  });
+
+  // Register readonly toggle command
+  pi.registerCommand("guardrails:readonly", {
+    description:
+      "Toggle readonly mode (restricts file writes and requires bash confirmation)",
+    handler: async (_args, ctx) => {
+      const newState = !getReadonlyEnabled();
+      setReadonlyState(newState, pi, ctx);
+      ctx.ui.notify(
+        newState ? "[Readonly ON]" : "[Readonly OFF]",
+        newState ? "warning" : "info",
+      );
+    },
+  });
 
   const hasGlobalConfig = configLoader.hasConfig("global");
 
@@ -79,6 +108,9 @@ export default async function (pi: ExtensionAPI) {
       ctx.ui.notify(warning, "warning");
     }
 
+    // Initialize readonly mode state
+    initializeReadonlyState(pi, ctx);
+
     if (!ctx.hasUI) {
       return;
     }
@@ -92,5 +124,10 @@ export default async function (pi: ExtensionAPI) {
     }
 
     maybeRegisterHooks();
+  });
+
+  // Restore readonly state when navigating session tree
+  pi.on("session_tree", (_event, ctx) => {
+    restoreReadonlyState(ctx, pi);
   });
 }

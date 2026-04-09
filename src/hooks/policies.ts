@@ -238,6 +238,7 @@ async function getEffectiveProtection(
   filePath: string,
   compiledRules: CompiledRule[],
   cwd: string,
+  readonlyEnabled: boolean,
 ): Promise<{
   protection: Protection;
   askConfirmation: boolean;
@@ -286,7 +287,12 @@ async function getEffectiveProtection(
     if (effectiveProtection === "none") continue;
 
     // Use override protection if set, otherwise use rule's default
-    const finalProtection = effectiveProtection ?? rule.protection;
+    let finalProtection = effectiveProtection ?? rule.protection;
+
+    // In readonly mode: transform "none" to "readOnly"
+    if (readonlyEnabled && finalProtection === "none") {
+      finalProtection = "readOnly";
+    }
 
     if (rule.onlyIfExists && !(await fileExists(filePath, cwd))) continue;
 
@@ -317,7 +323,11 @@ function extractPathTarget(input: Record<string, unknown>): string[] {
   return target ? [target] : [];
 }
 
-export function setupPoliciesHook(pi: ExtensionAPI, config: ResolvedConfig) {
+export function setupPoliciesHook(
+  pi: ExtensionAPI,
+  config: ResolvedConfig,
+  getReadonlyEnabled: () => boolean,
+) {
   if (!config.features.policies) return;
 
   const compiledRules = compileRules(config.policies.rules);
@@ -342,6 +352,7 @@ export function setupPoliciesHook(pi: ExtensionAPI, config: ResolvedConfig) {
         normalizedTarget,
         compiledRules,
         ctx.cwd,
+        getReadonlyEnabled(),
       );
       if (!effective) continue;
 

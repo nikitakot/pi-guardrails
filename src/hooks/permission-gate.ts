@@ -244,6 +244,7 @@ function findDangerousMatch(
 export function setupPermissionGateHook(
   pi: ExtensionAPI,
   config: ResolvedConfig,
+  getReadonlyEnabled: () => boolean,
 ) {
   if (!config.features.permissionGate) return;
 
@@ -293,13 +294,26 @@ export function setupPermissionGateHook(
       }
     }
 
-    // Check dangerous patterns (structural + compiled)
-    const match = findDangerousMatch(
-      command,
-      compiledPatterns,
-      useBuiltinMatchers,
-      fallbackPatterns,
-    );
+    // Determine if this command is dangerous
+    let match: { description: string; pattern: string } | undefined;
+    const readonlyActive = getReadonlyEnabled();
+
+    if (readonlyActive) {
+      // In readonly mode: ALL bash commands are treated as dangerous
+      match = {
+        description: "bash command in readonly mode",
+        pattern: "(readonly-mode)",
+      };
+    } else {
+      // Normal mode: check dangerous patterns (structural + compiled)
+      match = findDangerousMatch(
+        command,
+        compiledPatterns,
+        useBuiltinMatchers,
+        fallbackPatterns,
+      );
+    }
+
     if (!match) return;
 
     const { description, pattern: rawPattern } = match;
